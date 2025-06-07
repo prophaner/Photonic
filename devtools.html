@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Photonic DevTools</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 16px;
+      color: #333;
+    }
+    
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    
+    .stats {
+      display: flex;
+      gap: 24px;
+      margin-bottom: 16px;
+      background: #f5f5f5;
+      padding: 12px;
+      border-radius: 4px;
+    }
+    
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .stat-value {
+      font-size: 18px;
+      font-weight: bold;
+    }
+    
+    .stat-label {
+      font-size: 12px;
+      color: #666;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    
+    th, td {
+      padding: 8px 12px;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+    
+    th {
+      background-color: #f5f5f5;
+      position: sticky;
+      top: 0;
+    }
+    
+    tr:hover {
+      background-color: #f9f9f9;
+    }
+    
+    .actions {
+      display: flex;
+      gap: 8px;
+    }
+    
+    button {
+      padding: 6px 12px;
+      background: #0078d4;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    
+    button:hover {
+      background: #106ebe;
+    }
+    
+    .delete-btn {
+      background: #d83b01;
+    }
+    
+    .delete-btn:hover {
+      background: #a80000;
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: 32px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Photonic Cache Manager</h1>
+    <div class="actions">
+      <button id="refresh-btn">Refresh</button>
+      <button id="flush-btn" class="delete-btn">Flush Cache</button>
+    </div>
+  </div>
+  
+  <div class="stats">
+    <div class="stat-item">
+      <span class="stat-value" id="study-count">0</span>
+      <span class="stat-label">Studies</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-value" id="total-size">0 MB</span>
+      <span class="stat-label">Total Size</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-value" id="oldest-study">-</span>
+      <span class="stat-label">Oldest Study</span>
+    </div>
+  </div>
+  
+  <table id="studies-table">
+    <thead>
+      <tr>
+        <th>Study UID</th>
+        <th>Size</th>
+        <th>Cached On</th>
+        <th>Age (days)</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="studies-body"></tbody>
+  </table>
+  
+  <div id="empty-state" class="empty-state" style="display: none;">
+    <p>No studies in cache. Studies will appear here when they are downloaded.</p>
+  </div>
+  
+  <script src="devtools.js"></script>
+</body>
+</html>
