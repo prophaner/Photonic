@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const openSettingsButton = document.getElementById('openSettings');
   const forcePollButton = document.getElementById('forcePoll');
   const flushCacheButton = document.getElementById('flushCache');
+  const studyManagerButton = document.getElementById('studyManager');
   
   // Load cache stats
   updateCacheStats();
@@ -59,6 +60,15 @@ document.addEventListener('DOMContentLoaded', function() {
           }
         });
       }
+    });
+  }
+  
+  if (studyManagerButton) {
+    studyManagerButton.addEventListener('click', function() {
+      // Open the study manager in a new tab
+      chrome.tabs.create({
+        url: chrome.runtime.getURL('study-manager.html')
+      });
     });
   }
   

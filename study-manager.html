@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photonic Study Manager</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        .main-content {
+            padding: 30px;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .control-group {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #4285f4;
+        }
+
+        .control-group h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            margin: 5px;
+            min-width: 120px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(66, 133, 244, 0.3);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn.danger {
+            background: linear-gradient(135deg, #ea4335 0%, #d33b2c 100%);
+        }
+
+        .btn.warning {
+            background: linear-gradient(135deg, #fbbc04 0%, #f9ab00 100%);
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: left;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .stat-card.primary { border-left: 4px solid #2196F3; }
+        .stat-card.success { border-left: 4px solid #4CAF50; }
+        .stat-card.warning { border-left: 4px solid #FF9800; }
+        .stat-card.error { border-left: 4px solid #F44336; }
+        .stat-card.info { border-left: 4px solid #9C27B0; }
+        .stat-card.skipped { border-left: 4px solid #607D8B; }
+
+        .stat-icon {
+            font-size: 2em;
+            opacity: 0.8;
+        }
+
+        .stat-content {
+            flex: 1;
+        }
+
+        .stat-number {
+            font-size: 1.8em;
+            font-weight: bold;
+            margin-bottom: 2px;
+            color: #333;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .stat-detail {
+            font-size: 0.75em;
+            color: #999;
+            margin-top: 2px;
+        }
+
+        .studies-table {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .table-header {
+            background: #f8f9fa;
+            padding: 20px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .table-header h3 {
+            color: #333;
+            font-size: 1.3em;
+        }
+
+        .search-box {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            width: 250px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+            position: sticky;
+            top: 0;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+
+        .status-download {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .status-downloaded {
+            background: #e8f5e8;
+            color: #2e7d32;
+        }
+
+        .status-error {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .status-deleted {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 6px;
+            color: white;
+            font-weight: 500;
+            z-index: 1000;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification.success {
+            background: #4caf50;
+        }
+
+        .notification.error {
+            background: #f44336;
+        }
+
+        .notification.info {
+            background: #2196f3;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4285f4;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #e9ecef;
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4285f4, #34a853);
+            transition: width 0.3s ease;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+
+        .modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .modal h3 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .form-group input[readonly] {
+            background-color: #f5f5f5;
+            color: #666;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        /* Bulk Actions */
+        .bulk-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+
+        .bulk-info {
+            font-size: 0.9em;
+            color: #666;
+            font-weight: 500;
+        }
+
+        /* Settings Modal */
+        .settings-section {
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .settings-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .settings-section h4 {
+            margin: 0 0 15px 0;
+            color: #333;
+            font-size: 1.1em;
+        }
+
+        .credential-display {
+            background: #f5f5f5;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        /* Button variants */
+        .btn.secondary {
+            background: #6c757d;
+        }
+
+        .btn.secondary:hover {
+            background: #5a6268;
+        }
+
+        /* Status badges */
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+
+        .status-badge.status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-badge.status-downloaded {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-badge.status-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-badge.status-skipped {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+
+        /* Checkbox styling */
+        input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        /* Action buttons in table */
+        .action-btn {
+            padding: 4px 8px;
+            font-size: 0.8em;
+            margin: 2px;
+            min-width: auto;
+        }
+
+        .action-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Viewer icons styling */
+        .viewer-icons {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .viewer-icon {
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            border-radius: 4px;
+            padding: 2px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .viewer-icon-img {
+            width: 20px;
+            height: 20px;
+            object-fit: contain;
+            pointer-events: none;
+            border-radius: 2px;
+        }
+
+        .radiant-icon .viewer-icon-img {
+            filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+        }
+
+        .viewer-icon:hover {
+            background-color: #f0f0f0;
+            transform: scale(1.1);
+        }
+
+        .radiant-icon {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border: 1px solid #dee2e6;
+        }
+
+        .radiant-icon:hover {
+            background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            transform: scale(1.05);
+        }
+
+        /* Settings Modal Improvements */
+        .settings-modal {
+            max-width: 700px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .settings-tabs {
+            display: flex;
+            border-bottom: 1px solid #e0e0e0;
+            margin-bottom: 20px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 12px 16px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: #666;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .tab-btn:hover {
+            color: #4285f4;
+            background: #f8f9fa;
+        }
+
+        .tab-btn.active {
+            color: #4285f4;
+            border-bottom-color: #4285f4;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .settings-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        @media (max-width: 600px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .button-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .button-row .btn {
+            flex: 1;
+            min-width: 100px;
+        }
+
+        /* Compact settings sections */
+        .settings-section {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .settings-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .settings-section h4 {
+            margin: 0 0 12px 0;
+            color: #333;
+            font-size: 1em;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .form-group small {
+            display: block;
+            margin-top: 4px;
+            color: #666;
+            font-size: 0.85em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Photonic Study Manager</h1>
+            <p>Manage DICOM study downloads and cache</p>
+            <div id="initStatus" style="margin-top: 10px; padding: 10px; background: rgba(255,255,255,0.2); border-radius: 4px; font-size: 14px;">
+                Initializing...
+            </div>
+        </div>
+
+        <div class="main-content">
+            <!-- Enhanced Statistics -->
+            <div class="stats">
+                <div class="stat-card primary">
+                    <div class="stat-icon">📊</div>
+                    <div class="stat-content">
+                        <div class="stat-number" id="totalStudies">0</div>
+                        <div class="stat-label">Total Studies</div>
+                        <div class="stat-detail" id="totalStudiesDetail">Last updated: Never</div>
+                    </div>
+                </div>
+                <div class="stat-card success">
+                    <div class="stat-icon">✅</div>
+                    <div class="stat-content">
+                        <div class="stat-number" id="downloadedStudies">0</div>
+                        <div class="stat-label">Downloaded</div>
+                        <div class="stat-detail" id="downloadedDetail">Ready for viewing</div>
+                    </div>
+                </div>
+                <div class="stat-card warning">
+                    <div class="stat-icon">⏳</div>
+                    <div class="stat-content">
+                        <div class="stat-number" id="pendingStudies">0</div>
+                        <div class="stat-label">Pending</div>
+                        <div class="stat-detail" id="pendingDetail">Awaiting download</div>
+                    </div>
+                </div>
+                <div class="stat-card skipped">
+                    <div class="stat-icon">⏭️</div>
+                    <div class="stat-content">
+                        <div class="stat-number" id="skippedStudies">0</div>
+                        <div class="stat-label">Skipped</div>
+                        <div class="stat-detail" id="skippedDetail">Manually skipped</div>
+                    </div>
+                </div>
+                <div class="stat-card error">
+                    <div class="stat-icon">❌</div>
+                    <div class="stat-content">
+                        <div class="stat-number" id="errorStudies">0</div>
+                        <div class="stat-label">Errors</div>
+                        <div class="stat-detail" id="errorDetail">Failed downloads</div>
+                    </div>
+                </div>
+                <div class="stat-card info">
+                    <div class="stat-icon">💾</div>
+                    <div class="stat-content">
+                        <div class="stat-number" id="cacheSize">0 MB</div>
+                        <div class="stat-label">Cache Size</div>
+                        <div class="stat-detail" id="cacheSizeDetail">Disk usage</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="controls">
+                <div class="control-group">
+                    <h3>📊 Study Management</h3>
+                    <button class="btn" id="fetchStudyListBtn">
+                        <span id="fetchBtn">🔄 Fetch Study List</span>
+                    </button>
+                    <button class="btn" id="settingsBtn">
+                        ⚙️ Settings
+                    </button>
+                </div>
+
+                <!-- Bulk Actions (hidden by default) -->
+                <div class="control-group" id="bulkActionsGroup" style="display: none;">
+                    <h3>📦 Bulk Actions</h3>
+                    <div class="bulk-actions">
+                        <button class="btn" id="bulkDownloadBtn">📥 Download Selected</button>
+                        <button class="btn warning" id="bulkSkipBtn">⏭️ Skip Selected</button>
+                        <button class="btn danger" id="bulkDeleteBtn">🗑️ Delete Selected</button>
+                        <button class="btn secondary" id="bulkDeselectBtn">❌ Deselect All</button>
+                    </div>
+                    <div class="bulk-info">
+                        <span id="selectedCount">0</span> studies selected
+                    </div>
+                </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="progress-bar" id="progressBar" style="display: none;">
+                <div class="progress-fill" id="progressFill" style="width: 0%;"></div>
+            </div>
+
+            <!-- Studies Table -->
+            <div class="studies-table">
+                <div class="table-header">
+                    <h3>📋 Studies List</h3>
+                    <input type="text" class="search-box" placeholder="Search studies..." 
+                           id="searchBox">
+                </div>
+                <div style="max-height: 500px; overflow-y: auto;">
+                    <table id="studiesTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px;">
+                                    <input type="checkbox" id="selectAllCheckbox" title="Select All">
+                                </th>
+                                <th>Patient Name</th>
+                                <th>Patient ID</th>
+                                <th>Study ID</th>
+                                <th>Centre</th>
+                                <th>Status</th>
+                                <th>Download Time</th>
+                                <th style="width: 80px;">View</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="studiesTableBody">
+                            <tr>
+                                <td colspan="9" style="text-align: center; padding: 40px; color: #666;">
+                                    No studies loaded. Click "Fetch Study List" to begin.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content settings-modal">
+            <h3>⚙️ Settings</h3>
+            
+            <div class="settings-tabs">
+                <button class="tab-btn active" data-tab="general">General</button>
+                <button class="tab-btn" data-tab="radiant">RadiAnt</button>
+                <button class="tab-btn" data-tab="advanced">Advanced</button>
+            </div>
+            
+            <!-- General Tab -->
+            <div class="tab-content active" id="general-tab">
+                <div class="settings-grid">
+                    <div class="settings-section">
+                        <h4>🔐 Credentials</h4>
+                        <div class="form-group">
+                            <label>Current Username:</label>
+                            <div class="credential-display" id="currentUsername">Not set</div>
+                        </div>
+                        <div class="form-group">
+                            <label>Password Status:</label>
+                            <div class="credential-display" id="passwordStatus">Not set</div>
+                        </div>
+                        <button class="btn" id="updateCredentialsBtn">Update Credentials</button>
+                    </div>
+
+                    <div class="settings-section">
+                        <h4>📁 Study Storage</h4>
+                        <div class="form-group">
+                            <label for="studyLocationFolder">Folder Name:</label>
+                            <input type="text" id="studyLocationFolder" placeholder="Photonic" readonly>
+                            <small>Subfolder in Downloads directory</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Full Path:</label>
+                            <div class="credential-display" id="resolvedStoragePath">Calculating...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- RadiAnt Tab -->
+            <div class="tab-content" id="radiant-tab">
+                <div class="settings-section">
+                    <h4>🖥️ RadiAnt Integration</h4>
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" id="enableRadiantIntegration">
+                            <span>Enable RadiAnt Viewer Integration</span>
+                        </label>
+                        <small>Uses RadiAnt URL protocol (radiant://) to open studies directly</small>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="radiantOpenMode">Open Mode:</label>
+                            <select id="radiantOpenMode">
+                                <option value="file">Open File (-f)</option>
+                                <option value="folder">Open Folder (-d)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="radiantAdditionalArgs">Additional Arguments:</label>
+                            <input type="text" id="radiantAdditionalArgs" placeholder="-cl">
+                            <small>e.g., -cl (close other windows)</small>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <div class="button-row">
+                            <button class="btn secondary" id="detectRadiantBtn">Auto-Detect</button>
+                            <button class="btn secondary" id="testRadiantBtn">Test Integration</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Advanced Tab -->
+            <div class="tab-content" id="advanced-tab">
+                <div class="settings-grid">
+                    <div class="settings-section">
+                        <h4>🔄 Polling Settings</h4>
+                        <div class="form-group">
+                            <label for="pollingInterval">Interval (seconds):</label>
+                            <input type="number" id="pollingInterval" min="30" max="3600" value="60">
+                            <small>How often to check for new studies</small>
+                        </div>
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="disableAutoPolling">
+                                <span>Disable Auto Polling</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h4>💾 Cache Management</h4>
+                        <div class="form-group">
+                            <label>Current Cache Size:</label>
+                            <div class="credential-display" id="currentCacheSize">Calculating...</div>
+                        </div>
+                        <div class="form-group">
+                            <div class="button-row">
+                                <button class="btn warning" id="clearCacheBtn">Clear All</button>
+                                <button class="btn danger" id="clearErrorsBtn">Clear Errors</button>
+                                <button class="btn secondary" id="fixFilePathsBtn">Fix File Paths</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-buttons">
+                <button class="btn secondary" id="cancelSettingsBtn">Cancel</button>
+                <button class="btn" id="saveSettingsBtn">Save Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Credentials Modal -->
+    <div class="modal" id="credentialsModal">
+        <div class="modal-content">
+            <h3>🔐 Update Credentials</h3>
+            <div class="form-group">
+                <label for="username">Username/Email:</label>
+                <input type="text" id="username" placeholder="Enter your username">
+            </div>
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" placeholder="Enter your password">
+            </div>
+            <div class="modal-buttons">
+                <button class="btn secondary" id="cancelCredentialsBtn">Cancel</button>
+                <button class="btn" id="saveCredentialsBtn">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="core.js"></script>
+    <script src="study-fetcher.js"></script>
+    <script src="study-downloader.js"></script>
+    <script src="study-manager.js"></script>
+</body>
+</html>

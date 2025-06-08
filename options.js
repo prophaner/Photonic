@@ -3,6 +3,8 @@
  * Allows users to configure the extension
  */
 
+// Core functionality loaded via HTML script tag
+
 // Global variables for DOM elements
 let subdomainInput, usernameInput, passwordInput, maxGBInput, ttlDaysInput;
 let pollIntervalSecInput, notifyOnDownloadCheckbox, debugCheckbox;
@@ -46,9 +48,21 @@ document.addEventListener('DOMContentLoaded', function() {
   // Add event listeners
   if (saveButton) {
     console.log('Adding click listener to save button');
-    saveButton.addEventListener('click', function(e) {
+    saveButton.addEventListener('click', async function(e) {
       console.log('Save button clicked');
-      saveSettings();
+      
+      // Disable save button during save
+      saveButton.disabled = true;
+      const originalText = saveButton.textContent;
+      saveButton.textContent = 'Saving...';
+      
+      try {
+        await saveSettings();
+      } finally {
+        // Re-enable save button
+        saveButton.disabled = false;
+        saveButton.textContent = originalText;
+      }
     });
     
     // Enable the save button by default
@@ -80,7 +94,7 @@ document.addEventListener('DOMContentLoaded', function() {
  * Loads settings from storage
  */
 function loadSettings() {
-  chrome.storage.local.get(['settings', 'auth'], ({ settings, auth }) => {
+  chrome.storage.local.get(['settings', 'auth', 'encryptedPassword'], ({ settings, auth, encryptedPassword }) => {
     if (settings) {
       if (subdomainInput) subdomainInput.value = settings.subdomain || '';
       if (maxGBInput) maxGBInput.value = settings.maxGB || 50;
@@ -90,15 +104,42 @@ function loadSettings() {
       if (debugCheckbox) debugCheckbox.checked = settings.debug || false;
     }
     
-    if (auth && settings && usernameInput) {
+    // Load username from auth (backward compatibility)
+    if (auth && usernameInput) {
       try {
-        usernameInput.value = atob(auth).split(':')[0];
+        const decoded = atob(auth);
+        const username = decoded.split(':')[0];
+        usernameInput.value = username;
+        
+        // If we have old-style auth but no encrypted password, extract and encrypt the password
+        if (!encryptedPassword && decoded.includes(':')) {
+          const password = decoded.split(':')[1];
+          if (password && passwordInput) {
+            passwordInput.value = password;
+            // The password will be encrypted when settings are saved next time
+          }
+        }
       } catch (e) {
         console.error('Error decoding auth:', e);
       }
     }
     
-    validateForm();
+    // Load encrypted password
+    if (encryptedPassword && passwordInput) {
+      decryptPassword(encryptedPassword)
+        .then(password => {
+          passwordInput.value = password;
+          validateForm();
+        })
+        .catch(e => {
+          console.error('Error decrypting password:', e);
+          // Clear the corrupted encrypted password
+          chrome.storage.local.remove(['encryptedPassword']);
+          validateForm();
+        });
+    } else {
+      validateForm();
+    }
   });
 }
 
@@ -187,78 +228,240 @@ function validateForm() {
 /**
  * Saves settings to storage
  */
-function saveSettings() {
-  const settings = {
-    subdomain: subdomainInput ? subdomainInput.value.trim() : '',
-    maxGB: maxGBInput ? +maxGBInput.value || 50 : 50,
-    ttlDays: ttlDaysInput ? +ttlDaysInput.value || 7 : 7,
-    pollIntervalSec: pollIntervalSecInput ? +pollIntervalSecInput.value || 60 : 60,
-    notifyOnDownload: notifyOnDownloadCheckbox ? notifyOnDownloadCheckbox.checked : true,
-    filters: { status: 'READY' },
-    debug: debugCheckbox ? debugCheckbox.checked : false
-  };
-  
-  const auth = btoa(`${usernameInput ? usernameInput.value : ''}:${passwordInput ? passwordInput.value : ''}`);
-  
-  chrome.storage.local.set({ settings, auth }, () => {
-    showStatus('Settings saved successfully!', 'success');
+async function saveSettings() {
+  try {
+    const settings = {
+      subdomain: subdomainInput ? subdomainInput.value.trim() : '',
+      maxGB: maxGBInput ? +maxGBInput.value || 50 : 50,
+      ttlDays: ttlDaysInput ? +ttlDaysInput.value || 7 : 7,
+      pollIntervalSec: pollIntervalSecInput ? +pollIntervalSecInput.value || 60 : 60,
+      notifyOnDownload: notifyOnDownloadCheckbox ? notifyOnDownloadCheckbox.checked : true,
+      filters: { status: 'READY' },
+      debug: debugCheckbox ? debugCheckbox.checked : false
+    };
     
-    // Restart polling with new settings
-    chrome.runtime.sendMessage('restartPolling');
+    const username = usernameInput ? usernameInput.value : '';
+    const password = passwordInput ? passwordInput.value : '';
     
-    // Update cache stats
-    setTimeout(updateCacheStats, 500);
-  });
+    // Create auth for backward compatibility (but don't store the actual password)
+    const auth = btoa(`${username}:`);
+    
+    // Encrypt the password
+    let encryptedPassword = null;
+    if (password) {
+      encryptedPassword = await encryptPassword(password);
+    }
+    
+    // Save settings
+    const storageData = { settings, auth };
+    if (encryptedPassword) {
+      storageData.encryptedPassword = encryptedPassword;
+    }
+    
+    chrome.storage.local.set(storageData, () => {
+      showStatus('Settings saved successfully!', 'success');
+      
+      // Restart polling with new settings
+      chrome.runtime.sendMessage('restartPolling');
+      
+      // Update cache stats
+      setTimeout(updateCacheStats, 500);
+    });
+    
+  } catch (error) {
+    console.error('Error saving settings:', error);
+    showStatus('Error saving settings: ' + error.message, 'error');
+  }
 }
 
 /**
  * Tests the connection to the PACS
  */
-function testConnection() {
+async function testConnection() {
   console.log('Test button clicked');
+  
+  // Disable test button during test
+  if (testButton) {
+    testButton.disabled = true;
+    testButton.textContent = 'Testing...';
+  }
+  
   showStatus('Testing connection...', 'info');
   
-  // First, save the current settings
-  const settings = {
-    subdomain: subdomainInput ? subdomainInput.value.trim() : '',
-    maxGB: maxGBInput ? +maxGBInput.value || 50 : 50,
-    ttlDays: ttlDaysInput ? +ttlDaysInput.value || 7 : 7,
-    pollIntervalSec: pollIntervalSecInput ? +pollIntervalSecInput.value || 60 : 60,
-    notifyOnDownload: notifyOnDownloadCheckbox ? notifyOnDownloadCheckbox.checked : true,
-    filters: { status: 'READY' },
-    debug: debugCheckbox ? debugCheckbox.checked : false
-  };
+  // Validate required fields
+  const subdomain = subdomainInput ? subdomainInput.value.trim() : '';
+  const username = usernameInput ? usernameInput.value.trim() : '';
+  const password = passwordInput ? passwordInput.value : '';
   
-  const auth = btoa(`${usernameInput ? usernameInput.value : ''}:${passwordInput ? passwordInput.value : ''}`);
+  if (!username || !password) {
+    showStatus('Please fill in username and password', 'error');
+    resetTestButton();
+    return;
+  }
   
-  console.log('Saving temporary settings for test:', {
-    subdomain: settings.subdomain,
-    username: usernameInput ? usernameInput.value : '',
-    hasPassword: passwordInput && passwordInput.value ? 'yes' : 'no'
-  });
+  // Note: For QuickRad, the subdomain should typically be 'toprad'
+  if (subdomain && subdomain !== 'toprad') {
+    showStatus('Note: QuickRad typically uses "toprad" as subdomain. Testing with provided subdomain...', 'info');
+  }
   
-  // Save settings first, then test
-  chrome.storage.local.set({ settings, auth }, () => {
-    console.log('Settings saved, now testing connection');
+  try {
+    // Test the connection directly without saving settings
+    const testResult = await testPacsConnection(subdomain, username, password);
     
-    // Now test the connection
-    chrome.runtime.sendMessage('forcePoll', (response) => {
-      console.log('Test response:', response);
-      
-      if (chrome.runtime.lastError) {
-        console.error('Runtime error:', chrome.runtime.lastError);
-        showStatus('Connection failed. Check your settings and try again.', 'error');
-        return;
-      }
-      
-      if (response === 'ok') {
-        showStatus('Connection successful! Check DevTools for details.', 'success');
-        setTimeout(updateCacheStats, 1000);
-      } else {
-        showStatus('Connection failed. Check your settings and try again.', 'error');
-      }
+    if (testResult.success) {
+      showStatus(`✓ Connection successful! Found ${testResult.studyCount} studies in worklist.`, 'success');
+    } else {
+      showStatus(`✗ Connection failed: ${testResult.error}`, 'error');
+    }
+    
+  } catch (error) {
+    console.error('Test connection error:', error);
+    showStatus(`✗ Connection test failed: ${error.message}`, 'error');
+  } finally {
+    resetTestButton();
+  }
+}
+
+/**
+ * Reset test button to original state
+ */
+function resetTestButton() {
+  if (testButton) {
+    testButton.disabled = false;
+    testButton.textContent = 'Test Connection';
+  }
+}
+
+/**
+ * Tests PACS connection without saving settings using the correct QuickRad API
+ * @param {string} subdomain - The PACS subdomain (should be 'toprad' for QuickRad)
+ * @param {string} username - Username/email
+ * @param {string} password - Password
+ * @returns {Promise<Object>} - Test result with success status and details
+ */
+async function testPacsConnection(subdomain, username, password) {
+  try {
+    // Step 1: Authenticate and get JWT token
+    console.log('Step 1: Authenticating with QuickRad API...');
+    
+    const loginUrl = 'https://toprad.aikenist.com/api/quickrad/telerad/login-validation';
+    
+    // Create FormData for login (as per Python script)
+    const formData = new FormData();
+    formData.append('email', username);
+    formData.append('password', password);
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    
+    const loginResponse = await fetch(loginUrl, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'Accept': 'application/json'
+      },
+      signal: controller.signal
     });
-  });
+    
+    clearTimeout(timeoutId);
+    
+    if (!loginResponse.ok) {
+      if (loginResponse.status === 429) {
+        return {
+          success: false,
+          error: 'Too many login attempts. Account may be temporarily locked.'
+        };
+      } else if (loginResponse.status === 401 || loginResponse.status === 403) {
+        return {
+          success: false,
+          error: 'Authentication failed. Please check your username and password.'
+        };
+      } else {
+        return {
+          success: false,
+          error: `Login failed: HTTP ${loginResponse.status}: ${loginResponse.statusText}`
+        };
+      }
+    }
+    
+    const loginData = await loginResponse.json();
+    
+    if (!loginData.status || !loginData.token) {
+      return {
+        success: false,
+        error: loginData.message || 'Authentication failed - no valid token received'
+      };
+    }
+    
+    const token = loginData.token;
+    console.log('✓ Authentication successful, got JWT token');
+    
+    // Step 2: Fetch work-list using the JWT token
+    console.log('Step 2: Fetching work-list...');
+    
+    const workListUrl = 'https://toprad.aikenist.com/api/quickrad/telerad/fetch-admin-list';
+    
+    const workListFormData = new FormData();
+    workListFormData.append('page_size', '10'); // Small page size for testing
+    workListFormData.append('page_num', '1');
+    
+    const workListController = new AbortController();
+    const workListTimeoutId = setTimeout(() => workListController.abort(), 10000);
+    
+    const workListResponse = await fetch(workListUrl, {
+      method: 'POST',
+      body: workListFormData,
+      headers: {
+        'Authorization': `JWT ${token}`,
+        'Accept': 'application/json'
+      },
+      signal: workListController.signal
+    });
+    
+    clearTimeout(workListTimeoutId);
+    
+    if (!workListResponse.ok) {
+      return {
+        success: false,
+        error: `Work-list fetch failed: HTTP ${workListResponse.status}: ${workListResponse.statusText}`
+      };
+    }
+    
+    const workListData = await workListResponse.json();
+    console.log('✓ Work-list fetch successful');
+    
+    // Extract studies from response (handle both array and object with study_list)
+    let studies = [];
+    if (Array.isArray(workListData)) {
+      studies = workListData;
+    } else if (workListData.study_list && Array.isArray(workListData.study_list)) {
+      studies = workListData.study_list;
+    }
+    
+    return {
+      success: true,
+      studyCount: studies.length,
+      message: 'Connection successful'
+    };
+    
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      return {
+        success: false,
+        error: 'Connection timeout. Please check your network and try again.'
+      };
+    } else if (error.message.includes('Failed to fetch')) {
+      return {
+        success: false,
+        error: 'Network error. Please check your internet connection.'
+      };
+    } else {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
 }
 
 /**

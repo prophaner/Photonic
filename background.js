@@ -3,313 +3,8 @@
  * Handles study prefetching, encryption, and cache management
  */
 
-// Import functions from modules
-// Note: These will be properly imported once the modules are set up
-// For now, we'll define these functions inline to avoid import errors
-
-// Encryption functions
-async function encryptBlob(blob) {
-  try {
-    // Generate a random encryption key
-    const key = await window.crypto.subtle.generateKey(
-      { name: 'AES-GCM', length: 256 },
-      true,
-      ['encrypt', 'decrypt']
-    );
-    
-    // Generate a random initialization vector
-    const iv = window.crypto.getRandomValues(new Uint8Array(12));
-    
-    // Export the key for storage
-    const exportedKey = await window.crypto.subtle.exportKey('raw', key);
-    
-    // Convert blob to ArrayBuffer for encryption
-    const arrayBuffer = await blob.arrayBuffer();
-    
-    // Encrypt the data
-    const cipherText = await window.crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv },
-      key,
-      arrayBuffer
-    );
-    
-    return {
-      cipherText,
-      key: new Uint8Array(exportedKey),
-      iv,
-      originalSize: arrayBuffer.byteLength
-    };
-  } catch (error) {
-    console.error('[Photonic] Encryption error:', error);
-    throw new Error('Failed to encrypt data: ' + error.message);
-  }
-}
-
-async function decryptToBlob(encryptedData) {
-  try {
-    // Import the encryption key
-    const key = await window.crypto.subtle.importKey(
-      'raw',
-      encryptedData.key,
-      { name: 'AES-GCM', length: 256 },
-      false,
-      ['decrypt']
-    );
-    
-    // Decrypt the data
-    const decryptedBuffer = await window.crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: encryptedData.iv },
-      key,
-      encryptedData.cipherText
-    );
-    
-    // Convert back to Blob
-    return new Blob([decryptedBuffer], { type: 'application/dicom' });
-  } catch (error) {
-    console.error('[Photonic] Decryption error:', error);
-    throw new Error('Failed to decrypt data: ' + error.message);
-  }
-}
-
-// IndexedDB functions
-const DB_NAME = 'PhotonicCache';
-const STORE_NAME = 'studies';
-const DB_VERSION = 1;
-
-function openDatabase() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-    
-    request.onerror = (event) => {
-      console.error('[Photonic] Database error:', event.target.error);
-      reject(event.target.error);
-    };
-    
-    request.onupgradeneeded = (event) => {
-      const db = event.target.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        const store = db.createObjectStore(STORE_NAME, { keyPath: 'uid' });
-        store.createIndex('timestamp', 'ts', { unique: false });
-        store.createIndex('size', 'size', { unique: false });
-      }
-    };
-    
-    request.onsuccess = (event) => {
-      resolve(event.target.result);
-    };
-  });
-}
-
-async function idbPut(uid, data) {
-  try {
-    const db = await openDatabase();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction([STORE_NAME], 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
-      
-      // Add the UID to the data object
-      const record = { ...data, uid };
-      
-      const request = store.put(record);
-      
-      request.onerror = (event) => {
-        console.error('[Photonic] Error storing study:', event.target.error);
-        reject(event.target.error);
-      };
-      
-      request.onsuccess = () => {
-        resolve();
-      };
-      
-      transaction.oncomplete = () => {
-        db.close();
-      };
-    });
-  } catch (error) {
-    console.error('[Photonic] Database put error:', error);
-    throw error;
-  }
-}
-
-async function idbGet(uid) {
-  try {
-    const db = await openDatabase();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction([STORE_NAME], 'readonly');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.get(uid);
-      
-      request.onerror = (event) => {
-        console.error('[Photonic] Error retrieving study:', event.target.error);
-        reject(event.target.error);
-      };
-      
-      request.onsuccess = (event) => {
-        resolve(event.target.result || null);
-      };
-      
-      transaction.oncomplete = () => {
-        db.close();
-      };
-    });
-  } catch (error) {
-    console.error('[Photonic] Database get error:', error);
-    throw error;
-  }
-}
-
-async function idbHasStudy(uid) {
-  const study = await idbGet(uid);
-  return study !== null;
-}
-
-async function idbDelete(uid) {
-  try {
-    const db = await openDatabase();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction([STORE_NAME], 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.delete(uid);
-      
-      request.onerror = (event) => {
-        console.error('[Photonic] Error deleting study:', event.target.error);
-        reject(event.target.error);
-      };
-      
-      request.onsuccess = () => {
-        resolve();
-      };
-      
-      transaction.oncomplete = () => {
-        db.close();
-      };
-    });
-  } catch (error) {
-    console.error('[Photonic] Database delete error:', error);
-    throw error;
-  }
-}
-
-async function idbGetAll() {
-  try {
-    const db = await openDatabase();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction([STORE_NAME], 'readonly');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.getAll();
-      
-      request.onerror = (event) => {
-        console.error('[Photonic] Error retrieving all studies:', event.target.error);
-        reject(event.target.error);
-      };
-      
-      request.onsuccess = (event) => {
-        resolve(event.target.result || []);
-      };
-      
-      transaction.oncomplete = () => {
-        db.close();
-      };
-    });
-  } catch (error) {
-    console.error('[Photonic] Database getAll error:', error);
-    throw error;
-  }
-}
-
-async function idbTotalSize() {
-  const studies = await idbGetAll();
-  return studies.reduce((total, study) => total + (study.size || 0), 0);
-}
-
-async function idbGetByAge() {
-  try {
-    const db = await openDatabase();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction([STORE_NAME], 'readonly');
-      const store = transaction.objectStore(STORE_NAME);
-      const index = store.index('timestamp');
-      const request = index.getAll();
-      
-      request.onerror = (event) => {
-        console.error('[Photonic] Error retrieving studies by age:', event.target.error);
-        reject(event.target.error);
-      };
-      
-      request.onsuccess = (event) => {
-        resolve(event.target.result || []);
-      };
-      
-      transaction.oncomplete = () => {
-        db.close();
-      };
-    });
-  } catch (error) {
-    console.error('[Photonic] Database getByAge error:', error);
-    throw error;
-  }
-}
-
-// Utility functions
-function bytesToMB(bytes, precision = 2) {
-  return (bytes / 1048576).toFixed(precision);
-}
-
-function bytesToGB(bytes, precision = 2) {
-  return (bytes / 1073741824).toFixed(precision);
-}
-
-function gbToBytes(gb) {
-  return gb * 1073741824;
-}
-
-function getAgeInDays(timestamp) {
-  const now = Date.now();
-  const ageMs = now - timestamp;
-  return ageMs / (1000 * 60 * 60 * 24);
-}
-
-function throttle(func, limit) {
-  let inThrottle;
-  return function(...args) {
-    if (!inThrottle) {
-      func.apply(this, args);
-      inThrottle = true;
-      setTimeout(() => inThrottle = false, limit);
-    }
-  };
-}
-
-async function retry(fn, maxRetries = 3, baseDelay = 1000) {
-  let lastError;
-  
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      lastError = error;
-      if (attempt < maxRetries) {
-        const delay = baseDelay * Math.pow(2, attempt);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-  }
-  
-  throw lastError;
-}
-
-// Default settings
-const DEFAULT_SETTINGS = {
-  subdomain: '',
-  username: '',
-  password: '',
-  maxGB: 50,
-  ttlDays: 7,
-  filters: { status: 'READY' },
-  pollIntervalSec: 60,
-  debug: false,
-  notifyOnDownload: true
-};
+// Import core functionality
+importScripts('core.js');
 
 // Global state
 let pollTimer;
@@ -394,6 +89,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse('restarted');
       return true;
     }
+    
+    // New workflow messages
+    if (message === 'fetchStudyList') {
+      handleFetchStudyList()
+        .then(result => sendResponse(result))
+        .catch(err => {
+          console.error('[Photonic] Fetch study list error:', err);
+          sendResponse({ success: false, error: err.message });
+        });
+      return true;
+    }
+    
+    if (message === 'triggerDownloads') {
+      handleTriggerDownloads()
+        .then(result => sendResponse(result))
+        .catch(err => {
+          console.error('[Photonic] Trigger downloads error:', err);
+          sendResponse({ success: false, error: err.message });
+        });
+      return true;
+    }
   }
   
   // Handle object messages
@@ -476,27 +192,39 @@ function createContextMenu() {
 /**
  * Start the polling process
  */
-function startPolling() {
-  getCfg().then(({ settings, auth }) => {
-    if (!settings || !auth || !settings.subdomain) {
-      dbg('Polling not started: missing configuration');
+async function startPolling() {
+  try {
+    clearInterval(pollTimer);
+    
+    const { settings } = await chrome.storage.local.get(['settings']);
+    if (!settings || !settings.pollIntervalSec) {
+      dbg('Polling disabled - no interval configured');
       return;
     }
     
-    // Clear existing timer
-    if (pollTimer) {
-      clearInterval(pollTimer);
-    }
+    dbg('Starting polling with interval:', settings.pollIntervalSec, 'seconds');
     
-    // Start new timer
-    const interval = settings.pollIntervalSec * 1000;
-    pollTimer = setInterval(() => pollWorklist(settings, auth), interval);
+    // Start immediate poll
+    startOnePoll().catch(err => {
+      console.error('[Photonic] Initial poll failed:', err);
+    });
     
-    dbg('Polling started every', settings.pollIntervalSec, 'sec');
+    // Set up recurring polling
+    pollTimer = setInterval(() => {
+      startOnePoll().catch(err => {
+        console.error('[Photonic] Scheduled poll failed:', err);
+        consecutiveErrors++;
+        
+        if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+          console.error('[Photonic] Too many consecutive errors, stopping polling');
+          clearInterval(pollTimer);
+        }
+      });
+    }, settings.pollIntervalSec * 1000);
     
-    // Do an immediate poll
-    pollWorklist(settings, auth);
-  });
+  } catch (error) {
+    console.error('[Photonic] Error starting polling:', error);
+  }
 }
 
 /**
@@ -527,242 +255,349 @@ async function startOnePoll() {
 }
 
 /**
- * Poll the worklist and download new studies
+ * Poll the worklist and download new studies using QuickRad API
  * @param {Object} settings - User settings
  * @param {string} auth - Base64 encoded authentication string
  */
 async function pollWorklist(settings, auth) {
-  console.log('[Photonic] Polling worklist with settings:', {
-    subdomain: settings.subdomain,
-    status: settings.filters?.status || 'READY'
-  });
-  
   try {
-    const url = `https://${settings.subdomain}.aikenist.com/dicom-web/studies?status=${settings.filters?.status || 'READY'}`;
-    console.log('[Photonic] Fetching from URL:', url);
+    dbg('Polling worklist...');
     
-    // Simple fetch without retry for now
-    const response = await fetch(url, { 
-      headers: { 
-        'Authorization': `Basic ${auth}`,
-        'Accept': 'application/json'
-      }
-    });
-    
-    if (!response.ok) {
-      const errorMsg = `Worklist fetch failed: ${response.status} ${response.statusText}`;
-      console.error('[Photonic]', errorMsg);
-      throw new Error(errorMsg);
+    // Get credentials
+    let password;
+    if (settings.password && typeof settings.password === 'object') {
+      password = await decryptPassword(settings.password);
+    } else {
+      password = settings.password;
     }
     
-    console.log('[Photonic] Fetch successful, parsing response');
-    const resp = response;
+    const credentials = {
+      username: settings.username,
+      password: password
+    };
     
-    const studies = await resp.json();
-    dbg('Worklist returned', studies.length, 'items');
+    // Authenticate and fetch work list
+    const authResult = await authenticateWithAPI(credentials);
+    if (!authResult.success) {
+      throw new Error(authResult.error);
+    }
     
-    // Reset error counter on success
-    consecutiveErrors = 0;
+    const workList = await fetchWorkList(authResult.token);
+    const studies = Array.isArray(workList) ? workList : workList.study_list || [];
     
-    // Process studies in parallel with concurrency limit
-    const promises = [];
-    const concurrencyLimit = 3; // Process up to 3 studies at once
+    dbg('Found', studies.length, 'studies in worklist');
     
-    for (let i = 0; i < studies.length; i += concurrencyLimit) {
-      const batch = studies.slice(i, i + concurrencyLimit);
-      const batchPromises = batch.map(async (study) => {
+    // Process studies that match filters and aren't already cached
+    let downloadCount = 0;
+    for (const study of studies) {
+      if (await shouldDownloadStudy(study, settings)) {
         try {
-          const cached = await idbHasStudy(study.StudyInstanceUID);
-          if (!cached) {
-            await downloadAndStoreStudy(study, settings, auth);
-          }
-        } catch (err) {
-          console.error(`[Photonic] Error processing study ${study.StudyInstanceUID}:`, err);
+          await downloadStudy(study, authResult.token);
+          downloadCount++;
+        } catch (error) {
+          console.error('[Photonic] Failed to download study:', study.study_instance_uid, error);
         }
-      });
-      
-      // Wait for the current batch to complete before starting the next
-      await Promise.all(batchPromises);
-      promises.push(...batchPromises);
+      }
     }
     
-    // Wait for all downloads to complete
-    await Promise.all(promises);
-    
-    // Update badge with current count
-    await updateBadge();
-    
-  } catch (err) {
-    console.error('[Photonic] Worklist error:', err);
-    
-    // Increment error counter
-    consecutiveErrors++;
-    
-    // Notify user if there are persistent errors
-    if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-      chrome.notifications.create({
-        type: 'basic',
-        iconUrl: '/icons/icon48.png',
-        title: 'Photonic Error',
-        message: `Unable to connect to PACS. Please check your settings.`
-      });
+    if (downloadCount > 0) {
+      await updateBadge();
+      if (settings.notifyOnDownload) {
+        chrome.notifications.create({
+          type: 'basic',
+          iconUrl: '/icons/icon48.png',
+          title: 'Photonic',
+          message: `Downloaded ${downloadCount} new studies`
+        });
+      }
     }
+    
+    consecutiveErrors = 0; // Reset error counter on success
+    
+  } catch (error) {
+    console.error('[Photonic] Polling error:', error);
+    throw error;
+  }
+}
+
+// ------------------------------------------------ NEW WORKFLOW HANDLERS
+/**
+ * Handles fetching the study list from the API
+ */
+async function handleFetchStudyList() {
+  try {
+    console.log('[Photonic] Fetching study list...');
+    
+    // Get credentials from storage
+    const { settings } = await chrome.storage.local.get(['settings']);
+    if (!settings || !settings.username || !settings.password) {
+      throw new Error('No credentials configured');
+    }
+    
+    // Decrypt password
+    let password;
+    if (settings.password && typeof settings.password === 'object') {
+      password = await decryptPassword(settings.password);
+    } else {
+      password = settings.password;
+    }
+    
+    const credentials = {
+      username: settings.username,
+      password: password
+    };
+    
+    // Authenticate with API
+    const authResult = await authenticateWithAPI(credentials);
+    if (!authResult.success) {
+      throw new Error(authResult.error);
+    }
+    
+    // Fetch work list
+    const workList = await fetchWorkList(authResult.token);
+    
+    console.log('[Photonic] Study list fetched successfully');
+    
+    return {
+      success: true,
+      studies: workList,
+      token: authResult.token
+    };
+    
+  } catch (error) {
+    console.error('[Photonic] Error fetching study list:', error);
+    return {
+      success: false,
+      error: error.message
+    };
   }
 }
 
 /**
- * Downloads and stores a study
- * @param {Object} study - Study metadata
- * @param {Object} settings - User settings
- * @param {string} auth - Base64 encoded authentication string
+ * Handles triggering downloads for marked studies
  */
-async function downloadAndStoreStudy(study, settings, auth) {
-  const uid = study.StudyInstanceUID;
-  const studyDesc = study.StudyDescription || 'Unknown';
-  
-  dbg('Downloading', uid, studyDesc);
-  
+async function handleTriggerDownloads() {
   try {
-    // Check available space before downloading
-    await enforceQuota(settings);
+    console.log('[Photonic] Triggering downloads for marked studies...');
     
-    // Download the study
-    const url = `https://${settings.subdomain}.aikenist.com/dicom-web/studies/${uid}`;
+    // Get studies marked for download
+    const downloadStudies = await studiesDbGetByStatus(STUDY_STATUS.DOWNLOAD);
     
-    const resp = await retry(async () => {
-      const response = await fetch(url, { 
-        headers: { 'Authorization': `Basic ${auth}` } 
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Study download failed: ${response.status} ${response.statusText}`);
+    if (downloadStudies.length === 0) {
+      return {
+        success: true,
+        message: 'No studies marked for download',
+        total: 0,
+        downloaded: 0,
+        errors: 0,
+        results: []
+      };
+    }
+    
+    // Get credentials
+    const { settings } = await chrome.storage.local.get(['settings']);
+    if (!settings || !settings.username || !settings.password) {
+      throw new Error('No credentials configured');
+    }
+    
+    let password;
+    if (settings.password && typeof settings.password === 'object') {
+      password = await decryptPassword(settings.password);
+    } else {
+      password = settings.password;
+    }
+    
+    const credentials = {
+      username: settings.username,
+      password: password
+    };
+    
+    // Authenticate
+    const authResult = await authenticateWithAPI(credentials);
+    if (!authResult.success) {
+      throw new Error(authResult.error);
+    }
+    
+    // Download each study
+    const results = [];
+    let downloaded = 0;
+    let errors = 0;
+    
+    for (const study of downloadStudies) {
+      try {
+        await downloadStudyFromRecord(study, authResult.token);
+        await studiesDbUpdateStatus(study.study_id, STUDY_STATUS.DOWNLOADED, {
+          download_time: new Date().toISOString()
+        });
+        results.push({ study_id: study.study_id, status: 'success' });
+        downloaded++;
+      } catch (error) {
+        console.error('[Photonic] Download failed for study:', study.study_id, error);
+        await studiesDbUpdateStatus(study.study_id, STUDY_STATUS.ERROR, {
+          error: error.message
+        });
+        results.push({ study_id: study.study_id, status: 'error', error: error.message });
+        errors++;
       }
-      
-      return response;
-    }, 2);
+    }
     
-    const blob = await resp.blob();
+    await updateBadge();
     
-    // Encrypt the study
-    dbg('Encrypting', uid, `(${bytesToMB(blob.size)} MB)`);
-    const enc = await encryptBlob(blob);
+    return {
+      success: true,
+      total: downloadStudies.length,
+      downloaded,
+      errors,
+      results
+    };
     
-    // Add metadata
-    enc.ts = Date.now();
-    enc.size = enc.cipherText.byteLength;
-    enc.originalSize = blob.size;
-    enc.studyDesc = studyDesc;
+  } catch (error) {
+    console.error('[Photonic] Error triggering downloads:', error);
+    return {
+      success: false,
+      error: error.message,
+      total: 0,
+      downloaded: 0,
+      errors: 0,
+      results: []
+    };
+  }
+}
+
+// ------------------------------------------------ STUDY PROCESSING HELPERS
+
+/**
+ * Determines if a study should be downloaded based on filters and cache status
+ */
+async function shouldDownloadStudy(study, settings) {
+  try {
+    // Check if already cached
+    if (await idbHasStudy(study.study_instance_uid)) {
+      return false;
+    }
     
-    // Store in IndexedDB
-    await idbPut(uid, enc);
-    dbg('Stored', uid, `(${bytesToMB(enc.size)} MB)`);
-    
-    // Enforce quota again after storing
-    await enforceQuota(settings);
-    
-    // Update badge
-    updateBadge();
-    
-    // Show notification if enabled
-    if (settings.notifyOnDownload) {
-      chrome.notifications.create({
-        type: 'basic',
-        iconUrl: '/icons/icon48.png',
-        title: 'Study Downloaded',
-        message: `Study ${studyDesc} (${uid.substring(0, 8)}...) is now available offline.`
-      });
+    // Apply status filter
+    if (settings.filters && settings.filters.status) {
+      if (study.status !== settings.filters.status) {
+        return false;
+      }
     }
     
     return true;
   } catch (error) {
-    console.error(`[Photonic] Error downloading study ${uid}:`, error);
+    console.error('[Photonic] Error checking if study should be downloaded:', error);
     return false;
   }
 }
 
+/**
+ * Downloads a single study and stores it in cache
+ */
+async function downloadStudy(study, token) {
+  try {
+    dbg('Downloading study:', study.study_instance_uid);
+    
+    // Get internal UUID
+    const miscUrl = 'https://toprad.aikenist.com/api/quickrad/general/get-misc-study-data';
+    const formData = new FormData();
+    formData.append('study_instance_uid', study.study_instance_uid);
+    
+    const miscResponse = await fetch(miscUrl, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'Authorization': `JWT ${token}`,
+        'Accept': 'application/json'
+      }
+    });
+    
+    if (!miscResponse.ok) {
+      throw new Error(`Failed to get study UUID: ${miscResponse.status}`);
+    }
+    
+    const miscData = await miscResponse.json();
+    const uuid = miscData.study_data?.study_instance_uuid;
+    
+    if (!uuid) {
+      throw new Error('No UUID found in response');
+    }
+    
+    // Download ZIP
+    const archiveUrl = `https://toprad.aikenist.com/dicom-web/studies/${uuid}/archive`;
+    const archiveResponse = await fetch(archiveUrl, {
+      headers: {
+        'Authorization': `JWT ${token}`
+      }
+    });
+    
+    if (!archiveResponse.ok) {
+      throw new Error(`Failed to download study: ${archiveResponse.status}`);
+    }
+    
+    const blob = await archiveResponse.blob();
+    
+    // Encrypt and store
+    const encryptedData = await encryptBlob(blob);
+    const studyRecord = {
+      uid: study.study_instance_uid,
+      ...encryptedData,
+      size: blob.size,
+      ts: Date.now(),
+      patientName: study.patient_name || 'Unknown',
+      studyDate: study.study_date || ''
+    };
+    
+    await idbPut(study.study_instance_uid, studyRecord);
+    dbg('Study downloaded and cached:', study.study_instance_uid);
+    
+  } catch (error) {
+    console.error('[Photonic] Error downloading study:', error);
+    throw error;
+  }
+}
+
+/**
+ * Downloads a study from a database record
+ */
+async function downloadStudyFromRecord(studyRecord, token) {
+  const study = {
+    study_instance_uid: studyRecord.study_instance_uid || studyRecord.study_id,
+    patient_name: studyRecord.patient_name,
+    study_date: studyRecord.created_at
+  };
+  
+  return downloadStudy(study, token);
+}
+
 // ------------------------------------------------ CACHE MANAGEMENT
 /**
- * Enforces the storage quota by removing old studies
- * @param {Object} [settings] - User settings (will be fetched if not provided)
+ * Get configuration from storage
  */
-async function enforceQuota(settings) {
-  if (!settings) {
-    const cfg = await getCfg();
-    settings = cfg.settings;
-  }
-  
-  try {
-    // Get total size
-    const totalBytes = await idbTotalSize();
-    const maxBytes = gbToBytes(settings.maxGB);
-    
-    // If we're under quota, no need to remove anything
-    if (totalBytes <= maxBytes) {
-      return;
-    }
-    
-    dbg(`Cache size ${bytesToGB(totalBytes)}GB exceeds limit of ${settings.maxGB}GB, cleaning up...`);
-    
-    // Get all studies ordered by age (oldest first)
-    const studies = await idbGetByAge();
-    
-    // Calculate how much we need to remove
-    const bytesToRemove = totalBytes - maxBytes;
-    let removedBytes = 0;
-    
-    // Remove studies until we're under quota
-    for (const study of studies) {
-      if (removedBytes >= bytesToRemove) {
-        break;
-      }
-      
-      dbg(`Removing study ${study.uid} (${bytesToMB(study.size)} MB) due to quota`);
-      await idbDelete(study.uid);
-      removedBytes += study.size;
-    }
-    
-    dbg(`Removed ${bytesToMB(removedBytes)} MB to enforce quota`);
-    
-    // Update badge
-    updateBadge();
-  } catch (error) {
-    console.error('[Photonic] Error enforcing quota:', error);
-  }
+async function getCfg() {
+  const { settings, auth } = await chrome.storage.local.get(['settings', 'auth']);
+  return { settings, auth };
 }
 
 /**
- * Cleans up the cache by removing studies older than ttlDays
+ * Update the extension badge with cache count
  */
-async function cleanupCache() {
+async function updateBadge() {
   try {
-    const { settings } = await getCfg();
-    if (!settings) return;
-    
     const studies = await idbGetAll();
-    const now = Date.now();
-    let removedCount = 0;
+    const count = studies.length;
     
-    for (const study of studies) {
-      const ageInDays = (now - study.ts) / (1000 * 60 * 60 * 24);
-      
-      if (ageInDays > settings.ttlDays) {
-        dbg(`Removing study ${study.uid} (age: ${ageInDays.toFixed(1)} days)`);
-        await idbDelete(study.uid);
-        removedCount++;
-      }
-    }
+    chrome.action.setBadgeText({ 
+      text: count > 0 ? count.toString() : '' 
+    });
     
-    if (removedCount > 0) {
-      dbg(`Removed ${removedCount} studies due to age > ${settings.ttlDays} days`);
-      updateBadge();
-    }
+    chrome.action.setBadgeBackgroundColor({ color: '#4CAF50' });
   } catch (error) {
-    console.error('[Photonic] Error cleaning cache:', error);
+    console.error('[Photonic] Error updating badge:', error);
   }
 }
 
 /**
- * Flushes the entire cache
+ * Flush the entire cache
  */
 async function flushCache() {
   try {
@@ -772,44 +607,84 @@ async function flushCache() {
       await idbDelete(study.uid);
     }
     
-    dbg(`Cache flushed (${studies.length} studies removed)`);
-    updateBadge();
+    await updateBadge();
     
-    return studies.length;
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: '/icons/icon48.png',
+      title: 'Photonic',
+      message: `Flushed ${studies.length} studies from cache`
+    });
+    
+    dbg('Cache flushed:', studies.length, 'studies');
   } catch (error) {
     console.error('[Photonic] Error flushing cache:', error);
-    throw error;
   }
 }
 
-// ------------------------------------------------ UTILITIES
 /**
- * Updates the extension badge with the current study count
+ * Clean up old studies based on TTL
  */
-async function updateBadge() {
+async function cleanupCache() {
   try {
-    const studies = await idbGetAll();
-    const count = studies.length.toString();
+    const { settings } = await chrome.storage.local.get(['settings']);
+    if (!settings || !settings.ttlDays) return;
     
-    chrome.action.setBadgeText({ text: count });
-    chrome.action.setBadgeBackgroundColor({ color: '#4285F4' });
+    const studies = await idbGetByAge();
+    const cutoff = Date.now() - (settings.ttlDays * 24 * 60 * 60 * 1000);
     
-    // Update title with more details
-    const totalSize = studies.reduce((sum, study) => sum + study.size, 0);
-    const title = `Photonic: ${count} studies (${bytesToMB(totalSize)} MB)`;
-    chrome.action.setTitle({ title });
+    let deletedCount = 0;
+    
+    for (const study of studies) {
+      if (study.ts < cutoff) {
+        await idbDelete(study.uid);
+        deletedCount++;
+      }
+    }
+    
+    if (deletedCount > 0) {
+      await updateBadge();
+      dbg('Cleaned up', deletedCount, 'old studies');
+    }
   } catch (error) {
-    console.error('[Photonic] Error updating badge:', error);
+    console.error('[Photonic] Error during cleanup:', error);
   }
 }
 
 /**
- * Gets the current configuration from storage
- * @returns {Promise<Object>} - Object containing settings and auth
+ * Enforce storage quota
  */
-async function getCfg() {
-  return chrome.storage.local.get(['settings', 'auth']);
+async function enforceQuota() {
+  try {
+    const { settings } = await chrome.storage.local.get(['settings']);
+    if (!settings || !settings.maxGB) return;
+    
+    const maxBytes = gbToBytes(settings.maxGB);
+    const currentSize = await idbTotalSize();
+    
+    if (currentSize <= maxBytes) return;
+    
+    // Delete oldest studies until under quota
+    const studies = await idbGetByAge();
+    let deletedCount = 0;
+    let freedBytes = 0;
+    
+    for (const study of studies) {
+      if (currentSize - freedBytes <= maxBytes) break;
+      
+      await idbDelete(study.uid);
+      freedBytes += study.size || 0;
+      deletedCount++;
+    }
+    
+    if (deletedCount > 0) {
+      await updateBadge();
+      dbg('Quota enforcement: deleted', deletedCount, 'studies, freed', bytesToMB(freedBytes), 'MB');
+    }
+  } catch (error) {
+    console.error('[Photonic] Error enforcing quota:', error);
+  }
 }
 
-// Start polling when the service worker activates
+// Start polling when the service worker starts
 startPolling();

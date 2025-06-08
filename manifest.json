@@ -11,7 +11,8 @@
     "alarms",
     "contextMenus",
     "unlimitedStorage",
-    "notifications"
+    "notifications",
+    "downloads"
   ],
   "host_permissions": [
     "https://*.aikenist.com/*"
@@ -30,7 +31,7 @@
   "devtools_page": "devtools-page.html",
   "web_accessible_resources": [
     {
-      "resources": ["icons/*"],
+      "resources": ["icons/*", "study-manager.html"],
       "matches": ["https://*.aikenist.com/*"]
     }
   ]
