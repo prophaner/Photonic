@@ -11,7 +11,7 @@
       color: #333;
       width: 320px;
     }
-    
+
     .header {
       display: flex;
       justify-content: space-between;
@@ -20,13 +20,13 @@
       padding-bottom: 8px;
       border-bottom: 1px solid #eee;
     }
-    
+
     .header h1 {
       margin: 0;
       font-size: 18px;
       color: #0078d4;
     }
-    
+
     .stats {
       display: flex;
       flex-direction: column;
@@ -36,52 +36,51 @@
       padding: 12px;
       border-radius: 4px;
     }
-    
+
     .stat-row {
       display: flex;
       justify-content: space-between;
     }
-    
+
     .stat-label {
       font-weight: 500;
     }
-    
+
     .stat-value {
       font-weight: bold;
       color: #0078d4;
     }
-    
-    .actions {
+
+    .icons {
+      display: flex;
+      justify-content: space-around;
+      margin-top: 16px;
+    }
+
+    .icon-button {
       display: flex;
       flex-direction: column;
-      gap: 8px;
-    }
-    
-    button {
-      padding: 8px 12px;
-      background: #0078d4;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      text-align: left;
-      display: flex;
       align-items: center;
-      justify-content: space-between;
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 4px;
+      transition: background-color 0.2s;
     }
-    
-    button:hover {
-      background: #106ebe;
+
+    .icon-button:hover {
+      background-color: #f0f0f0;
     }
-    
-    .settings-btn {
-      background: #107c10;
+
+    .icon {
+      font-size: 24px;
+      margin-bottom: 4px;
     }
-    
-    .settings-btn:hover {
-      background: #0b5a0b;
+
+    .icon-label {
+      font-size: 12px;
+      color: #666;
     }
-    
+
     .footer {
       margin-top: 16px;
       text-align: center;
@@ -95,33 +94,41 @@
     <h1>Photonic</h1>
     <div>v0.3.0</div>
   </div>
-  
+
   <div class="stats">
     <div class="stat-row">
-      <span class="stat-label">Cached Studies:</span>
+      <span class="stat-label">Studies:</span>
       <span class="stat-value" id="studyCount">-</span>
     </div>
     <div class="stat-row">
-      <span class="stat-label">Cache Size:</span>
+      <span class="stat-label">Size:</span>
       <span class="stat-value" id="cacheSize">-</span>
     </div>
-    <div class="stat-row">
-      <span class="stat-label">Quota Usage:</span>
-      <span class="stat-value" id="cacheUsage">-</span>
+  </div>
+
+  <div class="icons">
+    <div class="icon-button" id="vaultButton">
+      <div class="icon">🏛️</div>
+      <div class="icon-label">Vault</div>
+    </div>
+    <div class="icon-button" id="cacheButton">
+      <div class="icon">💾</div>
+      <div class="icon-label">Cache</div>
+    </div>
+    <div class="icon-button" id="accountButton">
+      <div class="icon">👤</div>
+      <div class="icon-label">Account</div>
+    </div>
+    <div class="icon-button" id="logsButton">
+      <div class="icon">📋</div>
+      <div class="icon-label">Logs</div>
     </div>
   </div>
-  
-  <div class="actions">
-    <button id="studyManager">📊 Study Manager</button>
-    <button id="openSettings" class="settings-btn">Open Settings</button>
-    <button id="forcePoll">Force Poll Now</button>
-    <button id="flushCache">Flush Cache</button>
-  </div>
-  
+
   <div class="footer">
     <p>DICOM Study Prefetcher for Aikenist PACS</p>
   </div>
-  
+
   <script src="popup.js"></script>
 </body>
 </html>

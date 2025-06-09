@@ -27,7 +27,6 @@
       "color": "#4285F4"
     }
   },
-  "options_page": "options.html",
   "devtools_page": "devtools-page.html",
   "web_accessible_resources": [
     {

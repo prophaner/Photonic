@@ -7,15 +7,15 @@
 
 // Global variables for DOM elements
 let subdomainInput, usernameInput, passwordInput, maxGBInput, ttlDaysInput;
-let pollIntervalSecInput, notifyOnDownloadCheckbox, debugCheckbox;
+let pollIntervalSecInput, enableAutoPollingCheckbox, notifyOnDownloadCheckbox, debugCheckbox;
 let saveButton, testButton, viewCacheButton, statusElement;
-let studyCountElement, cacheSizeElement, cacheUsageElement;
+let studyCountElement, cacheSizeElement, cacheUsageElement, lastPollTimeElement;
 let inputs = [];
 
 // Initialize when the DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
   console.log('DOM loaded, initializing options page');
-  
+
   // Get DOM elements
   subdomainInput = document.getElementById('subdomain');
   usernameInput = document.getElementById('username');
@@ -23,6 +23,7 @@ document.addEventListener('DOMContentLoaded', function() {
   maxGBInput = document.getElementById('maxGB');
   ttlDaysInput = document.getElementById('ttlDays');
   pollIntervalSecInput = document.getElementById('pollIntervalSec');
+  enableAutoPollingCheckbox = document.getElementById('enableAutoPolling');
   notifyOnDownloadCheckbox = document.getElementById('notifyOnDownload');
   debugCheckbox = document.getElementById('debug');
   saveButton = document.getElementById('save');
@@ -32,6 +33,7 @@ document.addEventListener('DOMContentLoaded', function() {
   studyCountElement = document.getElementById('studyCount');
   cacheSizeElement = document.getElementById('cacheSize');
   cacheUsageElement = document.getElementById('cacheUsage');
+  lastPollTimeElement = document.getElementById('lastPollTime');
 
   console.log('DOM elements found:', {
     subdomain: !!subdomainInput,
@@ -45,17 +47,22 @@ document.addEventListener('DOMContentLoaded', function() {
   loadSettings();
   updateCacheStats();
 
+  // Set up periodic refresh of last poll time
+  setInterval(() => {
+    updateLastPollTime();
+  }, 10000); // Refresh every 10 seconds
+
   // Add event listeners
   if (saveButton) {
     console.log('Adding click listener to save button');
     saveButton.addEventListener('click', async function(e) {
       console.log('Save button clicked');
-      
+
       // Disable save button during save
       saveButton.disabled = true;
       const originalText = saveButton.textContent;
       saveButton.textContent = 'Saving...';
-      
+
       try {
         await saveSettings();
       } finally {
@@ -64,11 +71,11 @@ document.addEventListener('DOMContentLoaded', function() {
         saveButton.textContent = originalText;
       }
     });
-    
+
     // Enable the save button by default
     saveButton.disabled = false;
   }
-  
+
   if (testButton) {
     console.log('Adding click listener to test button');
     testButton.addEventListener('click', function(e) {
@@ -76,7 +83,7 @@ document.addEventListener('DOMContentLoaded', function() {
       testConnection();
     });
   }
-  
+
   if (viewCacheButton) {
     viewCacheButton.addEventListener('click', openDevTools);
   }
@@ -94,23 +101,34 @@ document.addEventListener('DOMContentLoaded', function() {
  * Loads settings from storage
  */
 function loadSettings() {
-  chrome.storage.local.get(['settings', 'auth', 'encryptedPassword'], ({ settings, auth, encryptedPassword }) => {
+  chrome.storage.local.get(['settings', 'auth', 'encryptedPassword', 'lastPollTime'], ({ settings, auth, encryptedPassword, lastPollTime }) => {
     if (settings) {
       if (subdomainInput) subdomainInput.value = settings.subdomain || '';
       if (maxGBInput) maxGBInput.value = settings.maxGB || 50;
       if (ttlDaysInput) ttlDaysInput.value = settings.ttlDays || 7;
       if (pollIntervalSecInput) pollIntervalSecInput.value = settings.pollIntervalSec || 60;
+      if (enableAutoPollingCheckbox) enableAutoPollingCheckbox.checked = settings.enableAutoPolling !== false;
       if (notifyOnDownloadCheckbox) notifyOnDownloadCheckbox.checked = settings.notifyOnDownload !== false;
       if (debugCheckbox) debugCheckbox.checked = settings.debug || false;
     }
-    
+
+    // Update last poll time display
+    if (lastPollTimeElement) {
+      if (lastPollTime) {
+        const date = new Date(lastPollTime);
+        lastPollTimeElement.textContent = date.toLocaleString();
+      } else {
+        lastPollTimeElement.textContent = 'Never';
+      }
+    }
+
     // Load username from auth (backward compatibility)
     if (auth && usernameInput) {
       try {
         const decoded = atob(auth);
         const username = decoded.split(':')[0];
         usernameInput.value = username;
-        
+
         // If we have old-style auth but no encrypted password, extract and encrypt the password
         if (!encryptedPassword && decoded.includes(':')) {
           const password = decoded.split(':')[1];
@@ -123,7 +141,7 @@ function loadSettings() {
         console.error('Error decoding auth:', e);
       }
     }
-    
+
     // Load encrypted password
     if (encryptedPassword && passwordInput) {
       decryptPassword(encryptedPassword)
@@ -152,16 +170,16 @@ function updateCacheStats() {
       console.error('Error getting cache stats:', chrome.runtime.lastError);
       return;
     }
-    
+
     if (studyCountElement) {
       studyCountElement.textContent = studies ? studies.length : 0;
     }
-    
+
     if (cacheSizeElement && studies) {
       const totalBytes = studies.reduce((sum, study) => sum + (study.size || 0), 0);
       cacheSizeElement.textContent = (totalBytes / 1048576).toFixed(1) + ' MB';
     }
-    
+
     if (cacheUsageElement && maxGBInput && studies) {
       const totalBytes = studies.reduce((sum, study) => sum + (study.size || 0), 0);
       const maxBytes = parseFloat(maxGBInput.value) * 1073741824;
@@ -184,31 +202,31 @@ function validateForm() {
     ttlDays: ttlDaysInput ? ttlDaysInput.value : 'missing',
     pollInterval: pollIntervalSecInput ? pollIntervalSecInput.value : 'missing'
   });
-  
+
   // Simplified validation - just check the critical fields
   let isValid = true;
-  
+
   if (!subdomainInput || subdomainInput.value.trim() === '') {
     console.log('Subdomain invalid');
     isValid = false;
   }
-  
+
   if (!usernameInput || usernameInput.value.trim() === '') {
     console.log('Username invalid');
     isValid = false;
   }
-  
+
   if (!passwordInput || passwordInput.value === '') {
     console.log('Password invalid');
     isValid = false;
   }
-  
+
   // Enable the save button regardless of validation for now
   if (saveButton) {
     console.log('Setting save button disabled state to:', false);
     saveButton.disabled = false;
   }
-  
+
   // Add validation styling
   inputs.forEach(input => {
     if (input) {
@@ -221,7 +239,7 @@ function validateForm() {
       }
     }
   });
-  
+
   return isValid;
 }
 
@@ -235,39 +253,40 @@ async function saveSettings() {
       maxGB: maxGBInput ? +maxGBInput.value || 50 : 50,
       ttlDays: ttlDaysInput ? +ttlDaysInput.value || 7 : 7,
       pollIntervalSec: pollIntervalSecInput ? +pollIntervalSecInput.value || 60 : 60,
+      enableAutoPolling: enableAutoPollingCheckbox ? enableAutoPollingCheckbox.checked : true,
       notifyOnDownload: notifyOnDownloadCheckbox ? notifyOnDownloadCheckbox.checked : true,
       filters: { status: 'READY' },
       debug: debugCheckbox ? debugCheckbox.checked : false
     };
-    
+
     const username = usernameInput ? usernameInput.value : '';
     const password = passwordInput ? passwordInput.value : '';
-    
+
     // Create auth for backward compatibility (but don't store the actual password)
     const auth = btoa(`${username}:`);
-    
+
     // Encrypt the password
     let encryptedPassword = null;
     if (password) {
       encryptedPassword = await encryptPassword(password);
     }
-    
+
     // Save settings
     const storageData = { settings, auth };
     if (encryptedPassword) {
       storageData.encryptedPassword = encryptedPassword;
     }
-    
+
     chrome.storage.local.set(storageData, () => {
       showStatus('Settings saved successfully!', 'success');
-      
+
       // Restart polling with new settings
       chrome.runtime.sendMessage('restartPolling');
-      
+
       // Update cache stats
       setTimeout(updateCacheStats, 500);
     });
-    
+
   } catch (error) {
     console.error('Error saving settings:', error);
     showStatus('Error saving settings: ' + error.message, 'error');
@@ -279,41 +298,41 @@ async function saveSettings() {
  */
 async function testConnection() {
   console.log('Test button clicked');
-  
+
   // Disable test button during test
   if (testButton) {
     testButton.disabled = true;
     testButton.textContent = 'Testing...';
   }
-  
+
   showStatus('Testing connection...', 'info');
-  
+
   // Validate required fields
   const subdomain = subdomainInput ? subdomainInput.value.trim() : '';
   const username = usernameInput ? usernameInput.value.trim() : '';
   const password = passwordInput ? passwordInput.value : '';
-  
+
   if (!username || !password) {
     showStatus('Please fill in username and password', 'error');
     resetTestButton();
     return;
   }
-  
+
   // Note: For QuickRad, the subdomain should typically be 'toprad'
   if (subdomain && subdomain !== 'toprad') {
     showStatus('Note: QuickRad typically uses "toprad" as subdomain. Testing with provided subdomain...', 'info');
   }
-  
+
   try {
     // Test the connection directly without saving settings
     const testResult = await testPacsConnection(subdomain, username, password);
-    
+
     if (testResult.success) {
       showStatus(`✓ Connection successful! Found ${testResult.studyCount} studies in worklist.`, 'success');
     } else {
       showStatus(`✗ Connection failed: ${testResult.error}`, 'error');
     }
-    
+
   } catch (error) {
     console.error('Test connection error:', error);
     showStatus(`✗ Connection test failed: ${error.message}`, 'error');
@@ -343,17 +362,17 @@ async function testPacsConnection(subdomain, username, password) {
   try {
     // Step 1: Authenticate and get JWT token
     console.log('Step 1: Authenticating with QuickRad API...');
-    
+
     const loginUrl = 'https://toprad.aikenist.com/api/quickrad/telerad/login-validation';
-    
+
     // Create FormData for login (as per Python script)
     const formData = new FormData();
     formData.append('email', username);
     formData.append('password', password);
-    
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-    
+
     const loginResponse = await fetch(loginUrl, {
       method: 'POST',
       body: formData,
@@ -362,9 +381,9 @@ async function testPacsConnection(subdomain, username, password) {
       },
       signal: controller.signal
     });
-    
+
     clearTimeout(timeoutId);
-    
+
     if (!loginResponse.ok) {
       if (loginResponse.status === 429) {
         return {
@@ -383,31 +402,31 @@ async function testPacsConnection(subdomain, username, password) {
         };
       }
     }
-    
+
     const loginData = await loginResponse.json();
-    
+
     if (!loginData.status || !loginData.token) {
       return {
         success: false,
         error: loginData.message || 'Authentication failed - no valid token received'
       };
     }
-    
+
     const token = loginData.token;
     console.log('✓ Authentication successful, got JWT token');
-    
+
     // Step 2: Fetch work-list using the JWT token
     console.log('Step 2: Fetching work-list...');
-    
+
     const workListUrl = 'https://toprad.aikenist.com/api/quickrad/telerad/fetch-admin-list';
-    
+
     const workListFormData = new FormData();
     workListFormData.append('page_size', '10'); // Small page size for testing
     workListFormData.append('page_num', '1');
-    
+
     const workListController = new AbortController();
     const workListTimeoutId = setTimeout(() => workListController.abort(), 10000);
-    
+
     const workListResponse = await fetch(workListUrl, {
       method: 'POST',
       body: workListFormData,
@@ -417,19 +436,19 @@ async function testPacsConnection(subdomain, username, password) {
       },
       signal: workListController.signal
     });
-    
+
     clearTimeout(workListTimeoutId);
-    
+
     if (!workListResponse.ok) {
       return {
         success: false,
         error: `Work-list fetch failed: HTTP ${workListResponse.status}: ${workListResponse.statusText}`
       };
     }
-    
+
     const workListData = await workListResponse.json();
     console.log('✓ Work-list fetch successful');
-    
+
     // Extract studies from response (handle both array and object with study_list)
     let studies = [];
     if (Array.isArray(workListData)) {
@@ -437,13 +456,13 @@ async function testPacsConnection(subdomain, username, password) {
     } else if (workListData.study_list && Array.isArray(workListData.study_list)) {
       studies = workListData.study_list;
     }
-    
+
     return {
       success: true,
       studyCount: studies.length,
       message: 'Connection successful'
     };
-    
+
   } catch (error) {
     if (error.name === 'AbortError') {
       return {
@@ -473,6 +492,22 @@ function openDevTools() {
 }
 
 /**
+ * Updates the last poll time display
+ */
+function updateLastPollTime() {
+  if (lastPollTimeElement) {
+    chrome.storage.local.get(['lastPollTime'], ({ lastPollTime }) => {
+      if (lastPollTime) {
+        const date = new Date(lastPollTime);
+        lastPollTimeElement.textContent = date.toLocaleString();
+      } else {
+        lastPollTimeElement.textContent = 'Never';
+      }
+    });
+  }
+}
+
+/**
  * Shows a status message
  * @param {string} message - The message to display
  * @param {string} type - The message type (success, error, info)
@@ -481,7 +516,7 @@ function showStatus(message, type = 'info') {
   if (statusElement) {
     statusElement.textContent = message;
     statusElement.className = type;
-    
+
     // Clear the message after 5 seconds
     setTimeout(() => {
       statusElement.textContent = '';

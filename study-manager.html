@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Photonic Study Manager</title>
+    <title>Photonic Vault</title>
     <style>
         * {
             margin: 0;
@@ -113,30 +113,30 @@
         .stat-card {
             background: white;
             border: 1px solid #e0e0e0;
-            border-radius: 12px;
-            padding: 20px;
+            border-radius: 8px;
+            padding: 12px;
             text-align: left;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
             transition: transform 0.2s, box-shadow 0.2s;
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: 10px;
         }
 
         .stat-card:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
         }
 
-        .stat-card.primary { border-left: 4px solid #2196F3; }
-        .stat-card.success { border-left: 4px solid #4CAF50; }
-        .stat-card.warning { border-left: 4px solid #FF9800; }
-        .stat-card.error { border-left: 4px solid #F44336; }
-        .stat-card.info { border-left: 4px solid #9C27B0; }
-        .stat-card.skipped { border-left: 4px solid #607D8B; }
+        .stat-card.primary { border-left: 3px solid #2196F3; }
+        .stat-card.success { border-left: 3px solid #4CAF50; }
+        .stat-card.warning { border-left: 3px solid #FF9800; }
+        .stat-card.error { border-left: 3px solid #F44336; }
+        .stat-card.info { border-left: 3px solid #9C27B0; }
+        .stat-card.skipped { border-left: 3px solid #607D8B; }
 
         .stat-icon {
-            font-size: 2em;
+            font-size: 1.5em;
             opacity: 0.8;
         }
 
@@ -145,22 +145,22 @@
         }
 
         .stat-number {
-            font-size: 1.8em;
+            font-size: 1.4em;
             font-weight: bold;
-            margin-bottom: 2px;
+            margin-bottom: 0;
             color: #333;
         }
 
         .stat-label {
-            font-size: 0.9em;
+            font-size: 0.8em;
             color: #666;
             font-weight: 500;
         }
 
         .stat-detail {
-            font-size: 0.75em;
+            font-size: 0.7em;
             color: #999;
-            margin-top: 2px;
+            margin-top: 1px;
         }
 
         .studies-table {
@@ -363,18 +363,126 @@
             margin-top: 20px;
         }
 
-        /* Bulk Actions */
-        .bulk-actions {
+        /* Modern Bulk Actions Toolbar */
+        .bulk-actions-toolbar {
+            position: sticky;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #f8f9fa;
+            border-top: 1px solid #e0e0e0;
+            padding: 12px 20px;
             display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            margin-bottom: 10px;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+            z-index: 100;
+            border-radius: 0 0 12px 12px;
+            margin-top: 20px;
         }
 
-        .bulk-info {
-            font-size: 0.9em;
-            color: #666;
+        .bulk-actions-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .bulk-selection-count {
+            font-size: 1em;
+            font-weight: 600;
+            color: #333;
+            background: #e9ecef;
+            padding: 6px 12px;
+            border-radius: 20px;
+        }
+
+        .bulk-selection-count span {
+            color: #4285f4;
+            font-weight: 700;
+        }
+
+        .bulk-actions-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .bulk-action-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
             font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: #f8f9fa;
+            color: #333;
+            min-width: 100px;
+        }
+
+        .bulk-action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .bulk-action-btn.primary {
+            background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
+            color: white;
+        }
+
+        .bulk-action-btn.warning {
+            background: linear-gradient(135deg, #fbbc04 0%, #f9ab00 100%);
+            color: white;
+        }
+
+        .bulk-action-btn.danger {
+            background: linear-gradient(135deg, #ea4335 0%, #d33b2c 100%);
+            color: white;
+        }
+
+        .bulk-action-btn.text-only {
+            background: transparent;
+            color: #666;
+            text-decoration: underline;
+            min-width: auto;
+            padding: 4px 8px;
+        }
+
+        .bulk-action-btn.text-only:hover {
+            color: #333;
+            background: #f0f0f0;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .bulk-action-icon {
+            font-size: 16px;
+        }
+
+        /* For mobile screens */
+        @media (max-width: 768px) {
+            .bulk-actions-toolbar {
+                flex-direction: column;
+                gap: 15px;
+                padding: 15px;
+            }
+
+            .bulk-actions-info {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .bulk-actions-buttons {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .bulk-action-btn {
+                flex: 1;
+            }
         }
 
         /* Settings Modal */
@@ -467,7 +575,7 @@
             display: flex;
             gap: 5px;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
         }
 
         .viewer-icon {
@@ -491,7 +599,8 @@
             border-radius: 2px;
         }
 
-        .radiant-icon .viewer-icon-img {
+        .radiant-icon .viewer-icon-img,
+        .microdicom-icon .viewer-icon-img {
             filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
         }
 
@@ -507,6 +616,17 @@
 
         .radiant-icon:hover {
             background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            transform: scale(1.05);
+        }
+
+        .microdicom-icon {
+            background-color: #0078d7; /* Solid blue color */
+            border: 1px solid #005a9e;
+        }
+
+        .microdicom-icon:hover {
+            background-color: #0063b1; /* Slightly darker blue on hover */
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
             transform: scale(1.05);
         }
@@ -622,97 +742,75 @@
             color: #666;
             font-size: 0.85em;
         }
+
+        /* Icon button style */
+        .btn-icon {
+            background: none;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: white;
+            padding: 0;
+        }
+
+        .btn-icon:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        /* Action icon style */
+        .action-icon {
+            background: none;
+            border: none;
+            border-radius: 4px;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin: 0 2px;
+            font-size: 16px;
+        }
+
+        .action-icon:hover {
+            background: #f0f0f0;
+            transform: translateY(-2px);
+        }
+
+        .action-icon.primary { color: #4285f4; }
+        .action-icon.warning { color: #fbbc04; }
+        .action-icon.danger { color: #ea4335; }
+        .action-icon.secondary { color: #5f6368; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>📊 Photonic Study Manager</h1>
-            <p>Manage DICOM study downloads and cache</p>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1>🏛️ Photonic Vault</h1>
+                    <p>Manage DICOM study downloads and cache</p>
+                </div>
+                <div>
+                    <button class="btn-icon" id="settingsBtn" title="Settings">
+                        <span style="font-size: 24px;">⚙️</span>
+                    </button>
+                </div>
+            </div>
             <div id="initStatus" style="margin-top: 10px; padding: 10px; background: rgba(255,255,255,0.2); border-radius: 4px; font-size: 14px;">
                 Initializing...
             </div>
         </div>
 
         <div class="main-content">
-            <!-- Enhanced Statistics -->
-            <div class="stats">
-                <div class="stat-card primary">
-                    <div class="stat-icon">📊</div>
-                    <div class="stat-content">
-                        <div class="stat-number" id="totalStudies">0</div>
-                        <div class="stat-label">Total Studies</div>
-                        <div class="stat-detail" id="totalStudiesDetail">Last updated: Never</div>
-                    </div>
-                </div>
-                <div class="stat-card success">
-                    <div class="stat-icon">✅</div>
-                    <div class="stat-content">
-                        <div class="stat-number" id="downloadedStudies">0</div>
-                        <div class="stat-label">Downloaded</div>
-                        <div class="stat-detail" id="downloadedDetail">Ready for viewing</div>
-                    </div>
-                </div>
-                <div class="stat-card warning">
-                    <div class="stat-icon">⏳</div>
-                    <div class="stat-content">
-                        <div class="stat-number" id="pendingStudies">0</div>
-                        <div class="stat-label">Pending</div>
-                        <div class="stat-detail" id="pendingDetail">Awaiting download</div>
-                    </div>
-                </div>
-                <div class="stat-card skipped">
-                    <div class="stat-icon">⏭️</div>
-                    <div class="stat-content">
-                        <div class="stat-number" id="skippedStudies">0</div>
-                        <div class="stat-label">Skipped</div>
-                        <div class="stat-detail" id="skippedDetail">Manually skipped</div>
-                    </div>
-                </div>
-                <div class="stat-card error">
-                    <div class="stat-icon">❌</div>
-                    <div class="stat-content">
-                        <div class="stat-number" id="errorStudies">0</div>
-                        <div class="stat-label">Errors</div>
-                        <div class="stat-detail" id="errorDetail">Failed downloads</div>
-                    </div>
-                </div>
-                <div class="stat-card info">
-                    <div class="stat-icon">💾</div>
-                    <div class="stat-content">
-                        <div class="stat-number" id="cacheSize">0 MB</div>
-                        <div class="stat-label">Cache Size</div>
-                        <div class="stat-detail" id="cacheSizeDetail">Disk usage</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Controls -->
-            <div class="controls">
-                <div class="control-group">
-                    <h3>📊 Study Management</h3>
-                    <button class="btn" id="fetchStudyListBtn">
-                        <span id="fetchBtn">🔄 Fetch Study List</span>
-                    </button>
-                    <button class="btn" id="settingsBtn">
-                        ⚙️ Settings
-                    </button>
-                </div>
-
-                <!-- Bulk Actions (hidden by default) -->
-                <div class="control-group" id="bulkActionsGroup" style="display: none;">
-                    <h3>📦 Bulk Actions</h3>
-                    <div class="bulk-actions">
-                        <button class="btn" id="bulkDownloadBtn">📥 Download Selected</button>
-                        <button class="btn warning" id="bulkSkipBtn">⏭️ Skip Selected</button>
-                        <button class="btn danger" id="bulkDeleteBtn">🗑️ Delete Selected</button>
-                        <button class="btn secondary" id="bulkDeselectBtn">❌ Deselect All</button>
-                    </div>
-                    <div class="bulk-info">
-                        <span id="selectedCount">0</span> studies selected
-                    </div>
-                </div>
-            </div>
 
             <!-- Progress Bar -->
             <div class="progress-bar" id="progressBar" style="display: none;">
@@ -722,9 +820,31 @@
             <!-- Studies Table -->
             <div class="studies-table">
                 <div class="table-header">
-                    <h3>📋 Studies List</h3>
-                    <input type="text" class="search-box" placeholder="Search studies..." 
-                           id="searchBox">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <h3>📋 Studies List</h3>
+                        <!-- Bulk Actions as Icons -->
+                        <div id="bulkActionsGroup" style="display: none; gap: 8px; align-items: center;">
+                            <button class="action-icon primary" id="bulkDownloadBtn" title="Download Selected">
+                                📥
+                            </button>
+                            <button class="action-icon warning" id="bulkSkipBtn" title="Skip Selected">
+                                ⏭️
+                            </button>
+                            <button class="action-icon danger" id="bulkDeleteBtn" title="Delete Selected">
+                                🗑️
+                            </button>
+                            <div class="bulk-selection-count">
+                                <span id="selectedCount">0</span> selected
+                            </div>
+                            <button class="action-icon secondary" id="bulkDeselectBtn" title="Cancel Selection">
+                                ❌
+                            </button>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <input type="text" class="search-box" placeholder="Search studies..." 
+                               id="searchBox">
+                    </div>
                 </div>
                 <div style="max-height: 500px; overflow-y: auto;">
                     <table id="studiesTable">
@@ -760,28 +880,17 @@
     <div class="modal" id="settingsModal">
         <div class="modal-content settings-modal">
             <h3>⚙️ Settings</h3>
-            
+
             <div class="settings-tabs">
                 <button class="tab-btn active" data-tab="general">General</button>
                 <button class="tab-btn" data-tab="radiant">RadiAnt</button>
+                <button class="tab-btn" data-tab="microdicom">MicroDicom</button>
                 <button class="tab-btn" data-tab="advanced">Advanced</button>
             </div>
-            
+
             <!-- General Tab -->
             <div class="tab-content active" id="general-tab">
                 <div class="settings-grid">
-                    <div class="settings-section">
-                        <h4>🔐 Credentials</h4>
-                        <div class="form-group">
-                            <label>Current Username:</label>
-                            <div class="credential-display" id="currentUsername">Not set</div>
-                        </div>
-                        <div class="form-group">
-                            <label>Password Status:</label>
-                            <div class="credential-display" id="passwordStatus">Not set</div>
-                        </div>
-                        <button class="btn" id="updateCredentialsBtn">Update Credentials</button>
-                    </div>
 
                     <div class="settings-section">
                         <h4>📁 Study Storage</h4>
@@ -797,7 +906,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- RadiAnt Tab -->
             <div class="tab-content" id="radiant-tab">
                 <div class="settings-section">
@@ -809,7 +918,7 @@
                         </label>
                         <small>Uses RadiAnt URL protocol (radiant://) to open studies directly</small>
                     </div>
-                    
+
                     <div class="form-row">
                         <div class="form-group">
                             <label for="radiantOpenMode">Open Mode:</label>
@@ -824,7 +933,7 @@
                             <small>e.g., -cl (close other windows)</small>
                         </div>
                     </div>
-                    
+
                     <div class="form-group">
                         <div class="button-row">
                             <button class="btn secondary" id="detectRadiantBtn">Auto-Detect</button>
@@ -833,7 +942,43 @@
                     </div>
                 </div>
             </div>
-            
+
+            <!-- MicroDicom Tab -->
+            <div class="tab-content" id="microdicom-tab">
+                <div class="settings-section">
+                    <h4>🖥️ MicroDicom Integration</h4>
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" id="enableMicroDicomIntegration">
+                            <span>Enable MicroDicom Viewer Integration</span>
+                        </label>
+                        <small>Uses MicroDicom URL protocol (microdicom://) to open studies directly</small>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="microDicomOpenMode">Open Mode:</label>
+                            <select id="microDicomOpenMode">
+                                <option value="file">Open File</option>
+                                <option value="folder">Open Folder</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="microDicomAdditionalArgs">Additional Arguments:</label>
+                            <input type="text" id="microDicomAdditionalArgs" placeholder="">
+                            <small>Additional parameters if needed</small>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="button-row">
+                            <button class="btn secondary" id="detectMicroDicomBtn">Auto-Detect</button>
+                            <button class="btn secondary" id="testMicroDicomBtn">Test Integration</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Advanced Tab -->
             <div class="tab-content" id="advanced-tab">
                 <div class="settings-grid">
@@ -846,9 +991,16 @@
                         </div>
                         <div class="form-group">
                             <label style="display: flex; align-items: center; gap: 8px;">
-                                <input type="checkbox" id="disableAutoPolling">
-                                <span>Disable Auto Polling</span>
+                                <input type="checkbox" id="enableAutoPolling">
+                                <span>Enable Auto Polling</span>
                             </label>
+                            <small>Automatically downloads studies every <span id="pollingIntervalDisplay">60</span> seconds</small>
+                        </div>
+                        <div class="form-group">
+                            <button class="btn" id="fetchStudyListBtn">
+                                <span id="fetchBtn">🔄 Fetch Study List Now</span>
+                            </button>
+                            <small>Manually fetch the latest studies</small>
                         </div>
                     </div>
 
@@ -858,12 +1010,37 @@
                             <label>Current Cache Size:</label>
                             <div class="credential-display" id="currentCacheSize">Calculating...</div>
                         </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h4>📦 Storage Size Settings</h4>
                         <div class="form-group">
-                            <div class="button-row">
-                                <button class="btn warning" id="clearCacheBtn">Clear All</button>
-                                <button class="btn danger" id="clearErrorsBtn">Clear Errors</button>
-                                <button class="btn secondary" id="fixFilePathsBtn">Fix File Paths</button>
-                            </div>
+                            <label for="maxStorageSize">Maximum Storage Size (GB):</label>
+                            <input type="number" id="maxStorageSize" min="1" max="100" value="10">
+                            <small>Default: 10GB</small>
+                        </div>
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="autoDeleteOldest">
+                                <span>Auto-delete Oldest Studies</span>
+                            </label>
+                            <small>Automatically delete oldest studies when storage threshold is reached</small>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h4>⏱️ Time Management Settings</h4>
+                        <div class="form-group">
+                            <label for="autoDeleteDays">Auto-delete Studies After (days):</label>
+                            <input type="number" id="autoDeleteDays" min="1" max="30" value="7">
+                            <small>Default: 7 days</small>
+                        </div>
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="enableTimeManagement">
+                                <span>Enable Time-based Auto-deletion</span>
+                            </label>
+                            <small>Automatically delete studies that have been downloaded for the specified number of days</small>
                         </div>
                     </div>
                 </div>
